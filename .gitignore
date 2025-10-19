@@ -1,0 +1,17 @@
+.idea/
+*.iws
+*.iml
+*.ipr
+
+.venv/
+venv/
+env/
+/bin/
+/include/
+/lib/
+/lib64/
+
+pycache/
+*.pyc
+*.pyd
+*.pyo

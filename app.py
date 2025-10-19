@@ -1,15 +1,15 @@
 import os.path
-
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import subprocess
+import threading
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        self.geometry("300x200")
+        self.geometry("300x160")
         self.title("Youtube video downloader")
 
         self.download_path = ""
@@ -31,7 +31,7 @@ class App(ctk.CTk):
         self.download_video_button = ctk.CTkButton(
             master=self,
             text="Download video",
-            command=self.download_video
+            command=self.start_download_thread
         )
         self.download_video_button.pack(pady=10)
 
@@ -46,27 +46,47 @@ class App(ctk.CTk):
         print(f"Stored Path: {self.download_path}")
         print(f"current link: {self.url_textbox}")
 
-    def download_video(self):
-        if self.download_path != "" and self.label != "Video link":
-            output_template = os.path.join(self.download_path, "%(title)s.%(ext)s")
-            YT_DLP_EXECUTABLE = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
-            download_video_command = [
-                YT_DLP_EXECUTABLE,
-                "-f",
-                "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "-o",
-                output_template,
-                self.video_link.get()
-            ]
-            try:
-                subprocess.run(download_video_command, check=True)
-                print("Download completed successfully")
-            except subprocess.CalledProcessError as e:
-                print(f"Error during download: {e}")
-            except FileNotFoundError:
-                print("Error: yt-dlp executable not found. Check your PATH.")
-            except Exception as e:
-                error_message = f"An unexpected error occurred: {e}"
-                print(f"{error_message}")
-        else:
-            print("empty fields")
+    def _download_video(self, video_link):
+        output_template = os.path.join(self.download_path, "%(title)s.%(ext)s")
+        YT_DLP_EXECUTABLE = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
+        download_video_command = [
+            YT_DLP_EXECUTABLE,
+            "-f",
+            "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "-o",
+            output_template,
+            video_link
+        ]
+        try:
+            subprocess.run(download_video_command, check=True)
+            self.after_idle(lambda : messagebox.showinfo("Success", f"Download completed at {self.download_path}"))
+        except subprocess.CalledProcessError as e:
+            self.after_idle(lambda : messagebox.showerror("Download failed", f"Error: {e}"))
+        except Exception as e:
+            self.after_idle(lambda : messagebox.showerror("Download failed", f"Error: {e}"))
+        except FileNotFoundError:
+            self.after_idle(lambda: messagebox.showerror("File not found", f"Error: yt-dlp not found"))
+        finally:
+            self.after_idle(lambda: self.download_video_button.configure(state="normal", text="Download video"))
+
+    def start_download_thread(self):
+        video_url = self.video_link.get().strip()
+
+        if not self.download_path:
+            messagebox.showerror("Validation Error", "Please select a download location.")
+            return
+
+        if not video_url or video_url == "Video link":
+            messagebox.showerror("Validation Error", "Please enter a valid video link.")
+            return
+
+        self.download_video_button.configure(state="disabled", text="Downloading...")
+        self.update()
+
+        download_thread = threading.Thread(
+            target=self._download_video,
+            args=(self.video_link.get(),),
+            daemon=True
+        )
+
+        download_thread.start()

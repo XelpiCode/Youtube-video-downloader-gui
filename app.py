@@ -9,7 +9,7 @@ class App(ctk.CTk):
         super().__init__()
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        self.geometry("300x160")
+        self.geometry("400x200")
         self.title("Youtube video downloader")
 
         self.download_path = ""
@@ -20,6 +20,16 @@ class App(ctk.CTk):
 
         self.label = ctk.CTkLabel(self, text="Download path: Not selected")
         self.label.pack()
+
+        self.format_var = ctk.StringVar(value="MP4")
+        ctk.CTkLabel(self, text="Select Download Format:").pack(pady=(0, 10))
+        self.format_option_menu = ctk.CTkOptionMenu(
+            self,
+            values=["MP4", "MP3"],
+            variable=self.format_var,
+            width=100
+        )
+        self.format_option_menu.pack(pady=5)
 
         self.directory_button = ctk.CTkButton(
             master=self,
@@ -43,29 +53,43 @@ class App(ctk.CTk):
             self.label.configure(text=f"Selected Path: {self.download_path}")
         else:
             self.label.configure(text="No folder selected")
-        print(f"Stored Path: {self.download_path}")
-        print(f"current link: {self.url_textbox}")
 
     def _download_video(self, video_link):
         output_template = os.path.join(self.download_path, "%(title)s.%(ext)s")
         YT_DLP_EXECUTABLE = "yt-dlp.exe" if os.name == 'nt' else "yt-dlp"
-        download_video_command = [
-            YT_DLP_EXECUTABLE,
-            "-f",
-            "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        selected_format = self.format_var.get()
+
+        if selected_format == "MP4":
+            format_options = [
+                "-f",
+                "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            ]
+        elif selected_format == "MP3":
+            format_options = [
+                "-x",
+                "--audio-format", "mp3",
+                "--audio-quality", "0"
+            ]
+        else:
+            format_options = []
+            self.after_idle(lambda: messagebox.showerror("Error", "Invalid format selected."))
+            return
+
+        download_video_command = [YT_DLP_EXECUTABLE] + format_options + [
             "-o",
             output_template,
             video_link
         ]
+
         try:
             subprocess.run(download_video_command, check=True)
             self.after_idle(lambda : messagebox.showinfo("Success", f"Download completed at {self.download_path}"))
+        except FileNotFoundError:
+            self.after_idle(lambda: messagebox.showerror("File not found", f"Error: yt-dlp not found"))
         except subprocess.CalledProcessError as e:
             self.after_idle(lambda : messagebox.showerror("Download failed", f"Error: {e}"))
         except Exception as e:
             self.after_idle(lambda : messagebox.showerror("Download failed", f"Error: {e}"))
-        except FileNotFoundError:
-            self.after_idle(lambda: messagebox.showerror("File not found", f"Error: yt-dlp not found"))
         finally:
             self.after_idle(lambda: self.download_video_button.configure(state="normal", text="Download video"))
 

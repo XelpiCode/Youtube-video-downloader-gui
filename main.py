@@ -9,7 +9,7 @@ class App(ctk.CTk):
         super().__init__()
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        self.geometry("400x200")
+        self.geometry("400x250")
         self.title("Youtube video downloader")
 
         self.download_path = ""
